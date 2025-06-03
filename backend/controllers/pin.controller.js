@@ -3,6 +3,9 @@ import User from "../models/user.model.js";
 import Board from "../models/board.model.js";
 import sharp from "sharp";
 import Imagekit from "imagekit";
+import Like from "../models/like.model.js";
+import Save from "../models/save.model.js";
+import jwt from "jsonwebtoken";
 
 export const getPins = async (req, res) => {
     const pageNumber = Number(req.query.cursor) || 0;
@@ -43,8 +46,6 @@ export const getPin = async (req, res) => {
         "user",
         "username img displayName"
     );
-
-    console.log(pin);
     res.status(200).json(pin);
 };
 
@@ -181,3 +182,77 @@ export const createPin = async (req, res) => {
             return res.status(500).json(err);
         });
 };
+
+export const interactionCheck = async (req, res) => {
+    const { id } = req.params;
+    const token = req.cookies.token;
+
+    const likeCount = await Like.countDocuments({ pin: id })
+    if (!token) {
+        return res.status(200).json({ likeCount, isLiked: false, isSaved: false })
+    }
+    jwt.verify(token, process.env.JWT_SECRET, async (err, payload) => {
+        if (err) {
+            return res.status(200).json({ likeCount, isLiked: false, isSaved: false })
+        }
+
+        const userId = payload.userId;
+
+        const isLiked = await Like.findOne({
+            user: userId,
+            pin: id,
+        })
+
+        const isSaved = await Save.findOne({
+            user: userId,
+            pin: id,
+        })
+
+        return res.status(200).json({
+            likeCount,
+            isLiked: isLiked ? true : false,
+            isSaved: isSaved ? true : false,
+        })
+    });
+}
+
+export const interact = async (req, res) => {
+    const { id } = req.params;
+
+    const { type } = req.body;
+
+    if (type === "like") {
+        const isLiked = await Like.findOne({
+            pin: id,
+            user: req.userId,
+        });
+        if (isLiked) {
+            await Like.deleteOne({
+                pin: id,
+                user: req.userId,
+            })
+        } else {
+            await Like.create({
+                pin: id,
+                user: req.userId
+            })
+        }
+    } else {
+        const isSaved = await Save.findOne({
+            pin: id,
+            user: req.userId,
+        });
+        if (isSaved) {
+            await Save.deleteOne({
+                pin: id,
+                user: req.userId,
+            })
+        } else {
+            await Save.create({
+                pin: id,
+                user: req.userId
+            })
+        }
+    };
+    return res.status(200).json({ message: "Successful" })
+}
