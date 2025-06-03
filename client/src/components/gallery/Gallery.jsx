@@ -18,7 +18,7 @@ const Gallery = ({ search, userId, boardId }) => {
         queryFn: ({ pageParam = 0 }) =>
             fetchPins({ pageParam, search, userId, boardId }),
         initialPageParam: 0,
-        getNextPageParam: (lastPage, pages) => lastPage.nextCursor,
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
     });
 
     if (status === "pending") return "Loading...";
